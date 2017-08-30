@@ -1,0 +1,6 @@
+<launch>
+
+  <node name="my_test" pkg="moveit_tutorials" type="my_test" respawn="false" output="screen">
+  </node>
+
+</launch>
