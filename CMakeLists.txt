@@ -30,8 +30,15 @@ find_package(Boost REQUIRED system filesystem date_time thread)
 find_package(TinyXML REQUIRED)
 
 ## Declare ROS messages and services
-
+add_service_files(
+  FILES
+  InverseKinematics.srv
+)
 ## Generate added messages and services
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+)
 
 ## Declare a catkin package
 catkin_package(  
@@ -55,3 +62,11 @@ target_link_libraries(motion ${catkin_LIBRARIES})
 
 add_executable(traj_sub src/traj_sub.cpp)
 target_link_libraries(traj_sub ${catkin_LIBRARIES})
+
+add_executable(roboy_ik_server src/roboy_ik_server.cpp)
+target_link_libraries(roboy_ik_server ${catkin_LIBRARIES})
+add_dependencies(roboy_ik_server roboy_ik_gencpp)
+
+add_executable(roboy_ik_client src/roboy_ik_client.cpp)
+target_link_libraries(roboy_ik_client ${catkin_LIBRARIES})
+add_dependencies(roboy_ik_client roboy_ik_gencpp)

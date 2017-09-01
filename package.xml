@@ -6,7 +6,7 @@
 
   <maintainer email="j.offfner@gmx.de">Your Name</maintainer>
   <license>BSD</license>
-  <url type="website">http://wiki.ros.org/beginner_tutorials</url>
+  <url type="website">http://wiki.ros.org/</url>
   <author email="j.offfner@gmx.de">Johannes Offner</author>
 
   <buildtool_depend>catkin</buildtool_depend>
@@ -23,7 +23,6 @@
   <build_depend>interactive_markers</build_depend>
   <build_depend>geometric_shapes</build_depend>
   <build_depend>moveit_visual_tools</build_depend>
-  <build_depend>my_test</build_depend>
   <build_depend>tinyxml</build_depend>
   <build_depend>cmake_modules</build_depend>
 
@@ -34,7 +33,6 @@
   <run_depend>moveit_ros_perception</run_depend>
   <run_depend>interactive_markers</run_depend>
   <run_depend>moveit_visual_tools</run_depend>
-  <run_depend>my_test</run_depend>
   <run_depend>tinyxml</run_depend>
   <run_depend>message_runtime</run_depend>
   <run_depend>roscpp</run_depend>

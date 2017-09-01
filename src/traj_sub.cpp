@@ -1,10 +1,10 @@
 /**
  *  @file    traj_sub.cpp
  *  @author  Johannes Offner
- *  @date    6/22/2017
+ *  @date    8/28/2017
  *  @version 1.0
  *
- *  @brief Roboy, Inverse Kinematics, receive trajectory from ROS MoeveIt and writes XML file
+ *  @brief Roboy 2.0, Inverse Kinematics, receive trajectory from ROS MoeveIt! and writes XML file
  *
  *  @section DESCRIPTION
  *
@@ -48,7 +48,7 @@
 using namespace std;
 
 #define NUM_JOINTS 6
-#define NUM_WAYPOINTS 20
+#define NUM_WAYPOINTS 5
 
 /**
 *   @brief  Writes joint values into a new XML file, that is readable by CASPR / CASPROS.
@@ -70,10 +70,6 @@ string get_joint_string(double q_array[NUM_WAYPOINTS][NUM_JOINTS], int wp){
 }
 
 void write_joint_trajectory_xml (double q_array[NUM_WAYPOINTS][NUM_JOINTS]) {
-        //double pi = 3.14159265359;
-        //stringstream stream;
-        //stream << fixed << setprecision(2) << pi;
-        //string s = get_joint_string(q_array, wp);//stream.str();
         int i = 0;
 
 		ROS_INFO("IN CALLBACk222!!!");
@@ -131,17 +127,23 @@ void write_joint_trajectory_xml (double q_array[NUM_WAYPOINTS][NUM_JOINTS]) {
 
                         TiXmlElement * q_dot = new TiXmlElement( "q_dot" );
                         point->LinkEndChild( q_dot );
+                        // TODO: replace "0.0 0.0 0.0 0.0 0.0 0.0" by get_joint_string(q_array, i)
+                        // if you want to have full functionalty. This is just for experimental
+                        // purposes, as the PaBiLegs CASPR model has 6 joints, instead of 2.
                         TiXmlText * q_dot_values = new TiXmlText( "0.0 0.0 0.0 0.0 0.0 0.0"  );
                         q_dot->LinkEndChild( q_dot_values );
 
                         TiXmlElement * q_ddot = new TiXmlElement( "q_ddot" );
                         point->LinkEndChild( q_ddot );
+                        // TODO: replace "0.0 0.0 0.0 0.0 0.0 0.0" by get_joint_string(q_array, i)
+                        // if you want to have full functionalty. This is just for experimental
+                        // purposes, as the PaBiLegs CASPR model has 6 joints, instead of 2.
                         TiXmlText * q_ddot_values = new TiXmlText( "0.0 0.0 0.0 0.0 0.0 0.0"  );
                         q_ddot->LinkEndChild( q_ddot_values );
                 }
         }
         /**
-         * tinyXML does not parse DOCTYPE elements. CASPROS needs a DOCTYPE declaration.
+         * tinyXML does not parse DOCTYPE elements. CASPR/OS needs a DOCTYPE declaration.
          * The doctype declaration never changes for any trajectory, so I created an XML file, called
          * head, containing the top of a trajectory XML file, that never changes.
          * trajo.xml is the part of the trajectory that contains the individual joint angles
@@ -149,18 +151,20 @@ void write_joint_trajectory_xml (double q_array[NUM_WAYPOINTS][NUM_JOINTS]) {
          * afterwards with the head.xml
          * trajo_combined.xml is the final usable trajectory file for CASPR / CASPROS
          */
-        ROS_INFO("Fertig!!!!!!!!!!");
-        doc.SaveFile( "trajo.xml" );
-        ifstream file1( "head.xml" ) ;
-        ifstream file2( "trajo.xml" ) ;
-        ofstream combined_file( "trajo_combined.xml" );
+
+        // TODO: change the file path for trajo.xml, head.xml, trajo_combined.xml as you wish.
+        doc.SaveFile( "/home/offi/catkin_ws/src/roboy_ik/src/trajo.xml" );
+        ifstream file1( "/home/offi/catkin_ws/src/roboy_ik/src/head.xml" ) ;
+        ifstream file2( "/home/offi/catkin_ws/src/roboy_ik/src/trajo.xml" ) ;
+        ofstream combined_file( "/home/offi/catkin_ws/src/roboy_ik/src/trajo_combined.xml" );
         combined_file << file1.rdbuf() << file2.rdbuf();
         
-        ifstream  src("trajo_combined.xml", std::ios::binary);
+        ifstream  src("/home/offi/catkin_ws/src/roboy_ik/src/trajo_combined.xml", std::ios::binary);
+        // TODO: change the file path to the CASPR model accordingly
         ofstream  dst("/home/offi/CASPR-master/data/model_config/models/PaBiLegs/PaBiLegs_trajectories.xml",   std::ios::binary);
 
         dst << src.rdbuf();
-        ROS_INFO("Fertig2!!!!!!!!!!");
+        ROS_INFO("Trajectory successfully created!");
 }
 
 
@@ -195,12 +199,8 @@ int main(int argc, char **argv)
 {
 
   ros::init(argc, argv, "subscribe_trajectory");
-
   ros::NodeHandle n;
-
   ros::Subscriber traj_sub = n.subscribe("/move_group/display_planned_path", 1000, traj_sub_callback);
-
   ros::spin();
-
   return 0;
 }

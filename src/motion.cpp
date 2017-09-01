@@ -1,15 +1,18 @@
-/*********************************************************************
- * Software License Agreement (BSD License)
+/**
+ *  @file    motion.cpp
+ *  @author  Johannes Offner
+ *  @date    8/28/2017
+ *  @version 1.0
  *
- * Inverse Kinematics
- * 
- * by Johannes Offner
- * 
- * 22.08.2017
- * 
- *********************************************************************/
-
-/* Author: Johannes Offner */
+ *  @brief Roboy 2.0, calculate Inverse Kinematics, send trajectory
+ *
+ *  @section DESCRIPTION
+ *
+ * This is publisher node, that calculates IK for "robot_description" if possible
+ * and visualizes the movement in Rviz. Afterwards the joint trajectory will be published.
+ *
+ *
+ */
 
 #include <pluginlib/class_loader.h>
 #include <ros/ros.h>
@@ -22,68 +25,30 @@
 #include <moveit_msgs/DisplayTrajectory.h>
 #include <moveit_msgs/PlanningScene.h>
 
+#include <iostream>
+#include <fstream>
+#include <iomanip>
+#include <sstream>
+#include "std_msgs/String.h"
+
 #include <boost/scoped_ptr.hpp>
+
+using namespace std;
 
 int main(int argc, char** argv)
 {
 	
-  // +************************************************** INITIALIZE********************************************************************
-  // +*********************************************************************************************************************************
+  // *************************************************** INITIALIZE***************************************************************
 	
-  ros::init(argc, argv, "move_group_tutorial");
+  ros::init(argc, argv, "motion");
   ros::AsyncSpinner spinner(1);
   spinner.start();
   ros::NodeHandle node_handle("~");
 
   robot_model_loader::RobotModelLoader robot_model_loader("robot_description");
   robot_model::RobotModelPtr robot_model = robot_model_loader.getModel();
-  ROS_INFO("Model frame: %s", robot_model->getModelFrame().c_str());
 
-  robot_state::RobotStatePtr kinematic_state(new robot_state::RobotState(robot_model));
-  kinematic_state->setToDefaultValues();
-  const robot_state::JointModelGroup *joint_model_group = robot_model->getJointModelGroup("leg");
-  const std::vector<std::string> &joint_names = joint_model_group->getVariableNames();
-  
-  
-  // Get Joint Values
-  // ^^^^^^^^^^^^^^^^
-  // We can retreive the current set of joint values stored in the state for the right arm.
-  std::vector<double> joint_values;
-  kinematic_state->copyJointGroupPositions(joint_model_group, joint_values);
-  for (std::size_t i = 0; i < joint_names.size(); ++i)
-  {
-    ROS_INFO("Joint %s: %f", joint_names[i].c_str(), joint_values[i]);
-  }
-  
-  // +*********************************************** Forward Kinematics***************************************************************
-  // +*********************************************************************************************************************************
-  
-  const Eigen::Affine3d &end_effector_state_init = kinematic_state->getGlobalLinkTransform("pabi_legs__link_0_0");
-  ROS_INFO_STREAM("Init_Translation: " << end_effector_state_init.translation());
-  ROS_INFO_STREAM("Init_Rotation: " << end_effector_state_init.rotation());
-
-  /* Sleep a little to allow time to startup rviz, etc. */
-  ROS_INFO_STREAM("Starting RViz...");
-  ros::WallDuration sleep_time(10.0);
-  sleep_time.sleep();
-
-  ROS_INFO("Setting up goal angles...");
-  joint_values[0] = -0.15;
-  joint_values[1] = 0.2;
-  
-  robot_state::RobotState goal_state(robot_model);
-  goal_state.setJointGroupPositions(joint_model_group, joint_values);
-  moveit_msgs::Constraints joint_goal = kinematic_constraints::constructGoalConstraints(goal_state, joint_model_group);
-
-
-  ROS_INFO("Forward Kinematics");
-  kinematic_state->setJointGroupPositions(joint_model_group, joint_values);
-  const Eigen::Affine3d &end_effector_state = kinematic_state->getGlobalLinkTransform("pabi_legs__link_0_0");
-  ROS_INFO_STREAM("FK End Translation: " << end_effector_state.translation());
-  ROS_INFO_STREAM("FK End Rotation: " << end_effector_state.rotation());
-  
-  
-  // *************************************************** PLANNING INIT ****************************************************************
+  // *************************************************** PLANNING INIT ***********************************************************
   
   planning_scene::PlanningScenePtr planning_scene(new planning_scene::PlanningScene(robot_model));
   boost::scoped_ptr<pluginlib::ClassLoader<planning_interface::PlannerManager>> planner_plugin_loader;
@@ -121,70 +86,53 @@ int main(int argc, char** argv)
                                                          << "Available plugins: " << ss.str());
   }
   
-  // PLANNING INTERFACE
+  /* Sleep a little to allow time to startup rviz, etc. */
+  ros::WallDuration sleep_time(15.0);
+  sleep_time.sleep();
+  
+  // DEFINITIONS
   planning_interface::MotionPlanRequest req;
   planning_interface::MotionPlanResponse res;
-  req.group_name = "leg";
   planning_interface::PlanningContextPtr context;
-  
-  // ************************************************ FK VISUALIZATION ****************************************************************
-  req.goal_constraints.push_back(joint_goal);
-  context = planner_instance->getPlanningContext(planning_scene, req, res.error_code_);
-  context->solve(res);
-  /* Check that the planning was successful */
-  if (res.error_code_.val != res.error_code_.SUCCESS)
-  {
-    ROS_ERROR("Could not compute plan successfully");
-    return 0;
-  }
-  /* Visualize the trajectory */
-  ROS_INFO("Visualizing the FK trajectory");
+  moveit_msgs::Constraints pose_goal;
   moveit_msgs::MotionPlanResponse response;
-  ros::Publisher display_publisher =
-    node_handle.advertise<moveit_msgs::DisplayTrajectory>("/move_group/display_planned_path", 1, true);
   moveit_msgs::DisplayTrajectory display_trajectory;
-
-  res.getMessage(response);
-  display_trajectory.trajectory_start = response.trajectory_start;
-  display_trajectory.trajectory.push_back(response.trajectory);
-
-  /* Now you should see two planned trajectories in series*/
-  display_publisher.publish(display_trajectory);
-  sleep_time.sleep();
-  ROS_INFO("STOPPING VISUALIZATION...");
-  kinematic_state->setJointGroupPositions(joint_model_group, joint_values);
-  const Eigen::Affine3d &end_effector_state2 = kinematic_state->getGlobalLinkTransform("pabi_legs__link_0_0");
-  ROS_INFO_STREAM("FK End Translation REAL: " << end_effector_state2.translation());
-  ROS_INFO_STREAM("FK End Rotation REAL: " << end_effector_state2.rotation());
-
-  //sleep_time.sleep();
   
-  // ********************************************** INVERSE KINEMATICS ************************************************************
-  // +*********************************************************************************************************************************
-  kinematic_state->setToDefaultValues();
-  const Eigen::Affine3d &end_effector_state_ik_start = kinematic_state->getGlobalLinkTransform("pabi_legs__link_0_0");
-  ROS_INFO_STREAM("Translation before IK: " << end_effector_state_ik_start.translation());
-  ROS_INFO_STREAM("Rotation before IK: " << end_effector_state_ik_start.rotation());
-  // Pose Goal
-  // ^^^^^^^^^
-
+   // *************************************************** GET POSE ***************************************************************
+  std::string poses[4];
+  ifstream pose_file("/home/offi/catkin_ws/src/roboy_ik/src/pose.txt");
+  int i = 0;
+  if(!pose_file) 
+  {
+    cout<<"Error opening output file"<<endl;
+    system("pause");
+    return -1;
+  }
+  ROS_INFO("Goal Position (x, y, z):");
+  while(!pose_file.eof())
+  {
+    getline(pose_file, poses[i], '\n');
+    ROS_INFO("%s", poses[i].c_str());
+  }
+  
+  // *************************************************** SET POSE ****************************************************************
+  // Sample Pose: 0.03394;  -0.17347;   -0.37346;
   geometry_msgs::PoseStamped pose;
   pose.header.frame_id = "odom_combined";
-  pose.pose.position.x = 0.03394;
-  pose.pose.position.y = -0.17347;
-  pose.pose.position.z = -0.37346;
+  pose.pose.position.x = atof(poses[0].c_str());
+  pose.pose.position.y = atof(poses[1].c_str());
+  pose.pose.position.z = atof(poses[2].c_str());
   pose.pose.orientation.w = 1.0;;
 
 
   std::vector<double> tolerance_pose(3, 0.01);
   std::vector<double> tolerance_angle(3, 0.1);
   
-  moveit_msgs::Constraints pose_goal =
-    kinematic_constraints::constructGoalConstraints("pabi_legs__link_0_0", pose, tolerance_pose, tolerance_angle);
-  req.goal_constraints.clear();
+  pose_goal = kinematic_constraints::constructGoalConstraints("pabi_legs__link_0_0", pose, tolerance_pose, tolerance_angle);
+  req.group_name = "leg";
   req.goal_constraints.push_back(pose_goal);
   
-  // ************************************************ CALCULATING IKFAST *************************************************************
+  // ********************************************** CALCULATING IKFAST ***********************************************************
   context = planner_instance->getPlanningContext(planning_scene, req, res.error_code_);
   context->solve(res);
   if (res.error_code_.val != res.error_code_.SUCCESS)
@@ -193,9 +141,11 @@ int main(int argc, char** argv)
     return 0;
   }
   
-  // ************************************************ VISUALIZE *********************************************************************
+  // ************************************************** VISUALIZE ****************************************************************
   /* Visualize the trajectory */
   ROS_INFO("Visualizing the IK trajectory");
+  
+  ros::Publisher display_publisher = node_handle.advertise<moveit_msgs::DisplayTrajectory>("/move_group/display_planned_path", 1, true);
   res.getMessage(response);
 
   display_trajectory.trajectory_start = response.trajectory_start;
